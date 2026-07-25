@@ -1,0 +1,111 @@
+# =====================================================================
+#  medialog
+# =====================================================================
+
+# ---------------------------------------------------------------------
+#  Secretos y configuracion local
+# ---------------------------------------------------------------------
+#  Nunca versionar cadenas de conexion ni claves de API externas
+#  (TMDB, OpenLibrary). Versionar solo el .env.example con las claves
+#  vacias, para que se sepa que variables hacen falta.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.pgpass
+
+# ---------------------------------------------------------------------
+#  Node
+# ---------------------------------------------------------------------
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+*.tsbuildinfo
+
+# Se versiona UN solo lockfile, el del gestor que se acabe usando.
+# Descomentar los otros dos cuando esa decision este tomada.
+# package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+
+# ---------------------------------------------------------------------
+#  Compilados y artefactos
+# ---------------------------------------------------------------------
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+.turbo/
+coverage/
+*.tgz
+
+# ---------------------------------------------------------------------
+#  Base de datos
+# ---------------------------------------------------------------------
+#  Los volcados y los CSV de importacion pueden pesar cientos de MB y
+#  contener datos de usuarios. Fuera del repositorio.
+*.dump
+*.sql.gz
+*.backup
+db/dumps/
+db/imports/
+!db/migrations/*.sql
+!db/seeds/*.sql
+
+# ---------------------------------------------------------------------
+#  Portadas y ficheros subidos
+# ---------------------------------------------------------------------
+#  Las portadas se guardan como URL en DAT_OBRA.portada_url; si algun
+#  dia se cachean en local, que no acaben aqui dentro.
+uploads/
+public/portadas/
+static/portadas/
+
+# ---------------------------------------------------------------------
+#  Logs y temporales
+# ---------------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+tmp/
+temp/
+.cache/
+
+# ---------------------------------------------------------------------
+#  Editores
+# ---------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------------
+#  Sistema operativo
+# ---------------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# ---------------------------------------------------------------------
+#  Android — para cuando llegue la app
+# ---------------------------------------------------------------------
+*.apk
+*.aab
+*.keystore
+*.jks
+local.properties
+.gradle/
+android/app/build/

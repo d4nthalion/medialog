@@ -1,0 +1,580 @@
+// =====================================================================
+//  medialog — Letterboxd para libros, películas y series
+//  Modelo EAV sobre PostgreSQL
+//
+//  Pegar en https://dbdiagram.io
+//
+//  Auditoría en las 31 tablas:
+//    fecha_alta / usuario_alta / fecha_modificacion / usuario_modificacion
+// =====================================================================
+
+Enum tipo_dato_enum {
+  TEXTO
+  TEXTO_LARGO
+  ENTERO
+  DECIMAL
+  FECHA
+  BOOL
+  OPCION
+  IDIOMA
+  PAIS
+}
+
+// ---------------------------------------------------------------------
+//  CONFIGURACIÓN TRANSVERSAL
+// ---------------------------------------------------------------------
+
+Table CFG_TIPO_OBRA {
+  id                    serial [pk]
+  codigo                varchar(20) [unique, not null, note: 'LIBRO, PELICULA, SERIE, TEMPORADA, EPISODIO']
+  nombre                varchar(50) [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_IDIOMA {
+  id                    serial [pk]
+  codigo_iso            varchar(3) [unique, not null, note: 'ISO 639-1/2']
+  nombre                varchar(80) [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_PAIS {
+  id                    serial [pk]
+  codigo_iso            varchar(2) [unique, not null, note: 'ISO 3166-1 alpha-2']
+  nombre                varchar(80) [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_ROL_PERSONA {
+  id                    serial [pk]
+  codigo                varchar(30) [unique, not null]
+  nombre                varchar(60) [not null]
+  ambito                varchar(20) [note: 'LIBRO | AUDIOVISUAL | AMBOS']
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+  Note: 'autor, traductor, ilustrador, director, actor, guionista, showrunner...'
+}
+
+Table CFG_ROL_EMPRESA {
+  id                    serial [pk]
+  codigo                varchar(30) [unique, not null]
+  nombre                varchar(60) [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+  Note: 'editorial, estudio, distribuidora, cadena, plataforma'
+}
+
+Table CFG_FUENTE_EXTERNA {
+  id                    serial [pk]
+  codigo                varchar(20) [unique, not null, note: 'TMDB, IMDB, OPENLIBRARY, ISBN']
+  nombre                varchar(60) [not null]
+  url_patron            text
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+// ---------------------------------------------------------------------
+//  NÚCLEO: SUPERTIPO Y SUBTIPOS
+// ---------------------------------------------------------------------
+
+Table DAT_OBRA {
+  id                    bigserial [pk]
+  tipo_obra_id          int [not null, ref: > CFG_TIPO_OBRA.id]
+  titulo                text [not null]
+  titulo_normalizado    text [note: 'COLUMNA GENERADA: fn_normalizar(titulo)']
+  anio                  smallint
+  portada_url           text
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (tipo_obra_id, anio)
+    titulo_normalizado [name: 'idx_obra_titulo_trgm', note: 'en DDL: GIN + pg_trgm']
+  }
+  Note: 'Supertipo. Reviews, ratings y listas apuntan SIEMPRE aquí.'
+}
+
+Table DAT_LIBRO {
+  obra_id               bigint [pk, ref: - DAT_OBRA.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table DAT_PELICULA {
+  obra_id               bigint [pk, ref: - DAT_OBRA.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table DAT_SERIE {
+  obra_id               bigint [pk, ref: - DAT_OBRA.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table DAT_TEMPORADA {
+  obra_id               bigint [pk, ref: - DAT_OBRA.id]
+  serie_id              bigint [not null, ref: > DAT_SERIE.obra_id]
+  numero                smallint [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (serie_id, numero) [unique]
+  }
+  Note: 'Sin EAV: sus campos son fijos y no varían.'
+}
+
+Table DAT_EPISODIO {
+  obra_id               bigint [pk, ref: - DAT_OBRA.id]
+  temporada_id          bigint [not null, ref: > DAT_TEMPORADA.obra_id]
+  numero                smallint [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (temporada_id, numero) [unique]
+  }
+}
+
+// ---------------------------------------------------------------------
+//  EAV — LIBRO
+// ---------------------------------------------------------------------
+
+Table CFG_TIPO_DATO_LIBRO {
+  id                    serial [pk]
+  codigo                varchar(40) [unique, not null]
+  nombre                varchar(80) [not null]
+  tipo_dato             tipo_dato_enum [not null]
+  es_multiple           boolean [not null, default: false]
+  obligatorio           boolean [not null, default: false]
+  unidad                varchar(20)
+  grupo                 varchar(40) [note: 'agrupación para el formulario']
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_OPCION_DATO_LIBRO {
+  id                    serial [pk]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_LIBRO.id]
+  codigo                varchar(40) [not null]
+  etiqueta              varchar(80) [not null]
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (tipo_dato_id, codigo) [unique]
+  }
+}
+
+Table DAT_DATO_LIBRO {
+  id                    bigserial [pk]
+  libro_id              bigint [not null, ref: > DAT_LIBRO.obra_id]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_LIBRO.id]
+  valor_texto           text
+  valor_entero          bigint
+  valor_decimal         numeric(14,2)
+  valor_fecha           date
+  valor_bool            boolean
+  valor_opcion_id       int [ref: > CFG_OPCION_DATO_LIBRO.id]
+  valor_idioma_id       int [ref: > CFG_IDIOMA.id]
+  valor_pais_id         int [ref: > CFG_PAIS.id]
+  posicion              smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (libro_id, tipo_dato_id, posicion) [unique]
+    (tipo_dato_id, valor_opcion_id)
+    (tipo_dato_id, valor_entero)
+  }
+  Note: 'CHECK num_nonnulls(valor_*) = 1 — en el DDL; DBML no soporta CHECK.'
+}
+
+// ---------------------------------------------------------------------
+//  EAV — PELÍCULA
+// ---------------------------------------------------------------------
+
+Table CFG_TIPO_DATO_PELICULA {
+  id                    serial [pk]
+  codigo                varchar(40) [unique, not null]
+  nombre                varchar(80) [not null]
+  tipo_dato             tipo_dato_enum [not null]
+  es_multiple           boolean [not null, default: false]
+  obligatorio           boolean [not null, default: false]
+  unidad                varchar(20)
+  grupo                 varchar(40)
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_OPCION_DATO_PELICULA {
+  id                    serial [pk]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_PELICULA.id]
+  codigo                varchar(40) [not null]
+  etiqueta              varchar(80) [not null]
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (tipo_dato_id, codigo) [unique]
+  }
+}
+
+Table DAT_DATO_PELICULA {
+  id                    bigserial [pk]
+  pelicula_id           bigint [not null, ref: > DAT_PELICULA.obra_id]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_PELICULA.id]
+  valor_texto           text
+  valor_entero          bigint
+  valor_decimal         numeric(14,2)
+  valor_fecha           date
+  valor_bool            boolean
+  valor_opcion_id       int [ref: > CFG_OPCION_DATO_PELICULA.id]
+  valor_idioma_id       int [ref: > CFG_IDIOMA.id]
+  valor_pais_id         int [ref: > CFG_PAIS.id]
+  posicion              smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (pelicula_id, tipo_dato_id, posicion) [unique]
+    (tipo_dato_id, valor_opcion_id)
+    (tipo_dato_id, valor_entero)
+  }
+}
+
+// ---------------------------------------------------------------------
+//  EAV — SERIE
+// ---------------------------------------------------------------------
+
+Table CFG_TIPO_DATO_SERIE {
+  id                    serial [pk]
+  codigo                varchar(40) [unique, not null]
+  nombre                varchar(80) [not null]
+  tipo_dato             tipo_dato_enum [not null]
+  es_multiple           boolean [not null, default: false]
+  obligatorio           boolean [not null, default: false]
+  unidad                varchar(20)
+  grupo                 varchar(40)
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_OPCION_DATO_SERIE {
+  id                    serial [pk]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_SERIE.id]
+  codigo                varchar(40) [not null]
+  etiqueta              varchar(80) [not null]
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (tipo_dato_id, codigo) [unique]
+  }
+}
+
+Table DAT_DATO_SERIE {
+  id                    bigserial [pk]
+  serie_id              bigint [not null, ref: > DAT_SERIE.obra_id]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_SERIE.id]
+  valor_texto           text
+  valor_entero          bigint
+  valor_decimal         numeric(14,2)
+  valor_fecha           date
+  valor_bool            boolean
+  valor_opcion_id       int [ref: > CFG_OPCION_DATO_SERIE.id]
+  valor_idioma_id       int [ref: > CFG_IDIOMA.id]
+  valor_pais_id         int [ref: > CFG_PAIS.id]
+  posicion              smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (serie_id, tipo_dato_id, posicion) [unique]
+    (tipo_dato_id, valor_opcion_id)
+    (tipo_dato_id, valor_entero)
+  }
+}
+
+// ---------------------------------------------------------------------
+//  EAV — EPISODIO
+// ---------------------------------------------------------------------
+
+Table CFG_TIPO_DATO_EPISODIO {
+  id                    serial [pk]
+  codigo                varchar(40) [unique, not null]
+  nombre                varchar(80) [not null]
+  tipo_dato             tipo_dato_enum [not null]
+  es_multiple           boolean [not null, default: false]
+  obligatorio           boolean [not null, default: false]
+  unidad                varchar(20)
+  grupo                 varchar(40)
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table CFG_OPCION_DATO_EPISODIO {
+  id                    serial [pk]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_EPISODIO.id]
+  codigo                varchar(40) [not null]
+  etiqueta              varchar(80) [not null]
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (tipo_dato_id, codigo) [unique]
+  }
+}
+
+Table DAT_DATO_EPISODIO {
+  id                    bigserial [pk]
+  episodio_id           bigint [not null, ref: > DAT_EPISODIO.obra_id]
+  tipo_dato_id          int [not null, ref: > CFG_TIPO_DATO_EPISODIO.id]
+  valor_texto           text
+  valor_entero          bigint
+  valor_decimal         numeric(14,2)
+  valor_fecha           date
+  valor_bool            boolean
+  valor_opcion_id       int [ref: > CFG_OPCION_DATO_EPISODIO.id]
+  valor_idioma_id       int [ref: > CFG_IDIOMA.id]
+  valor_pais_id         int [ref: > CFG_PAIS.id]
+  posicion              smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (episodio_id, tipo_dato_id, posicion) [unique]
+  }
+}
+
+// ---------------------------------------------------------------------
+//  PERSONAS Y EMPRESAS
+// ---------------------------------------------------------------------
+
+Table DAT_PERSONA {
+  id                    bigserial [pk]
+  nombre                text [not null]
+  nombre_normalizado    text [note: 'COLUMNA GENERADA: fn_normalizar(nombre)']
+  fecha_nacimiento      date
+  fecha_fallecimiento   date
+  pais_id               int [ref: > CFG_PAIS.id]
+  biografia             text
+  foto_url              text
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    nombre_normalizado
+  }
+  Note: 'Una sola tabla: Cormac McCarthy es autor Y guionista.'
+}
+
+Table DAT_PERSONA_OBRA {
+  id                    bigserial [pk]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  persona_id            bigint [not null, ref: > DAT_PERSONA.id]
+  rol_id                int [not null, ref: > CFG_ROL_PERSONA.id]
+  personaje             text [note: 'solo para rol actor']
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (obra_id, rol_id, orden)
+    (persona_id, rol_id)
+  }
+  Note: 'El personaje es dato de la RELACIÓN, no de la persona ni de la obra.'
+}
+
+Table DAT_EMPRESA {
+  id                    bigserial [pk]
+  nombre                text [not null]
+  nombre_normalizado    text [note: 'COLUMNA GENERADA: fn_normalizar(nombre)']
+  pais_id               int [ref: > CFG_PAIS.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table DAT_EMPRESA_OBRA {
+  id                    bigserial [pk]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  empresa_id            bigint [not null, ref: > DAT_EMPRESA.id]
+  rol_id                int [not null, ref: > CFG_ROL_EMPRESA.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (obra_id, empresa_id, rol_id) [unique]
+    (empresa_id, rol_id)
+  }
+}
+
+// ---------------------------------------------------------------------
+//  IDENTIFICADORES EXTERNOS Y COLECCIONES
+// ---------------------------------------------------------------------
+
+Table DAT_ID_EXTERNO_OBRA {
+  id                    bigserial [pk]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  fuente_id             int [not null, ref: > CFG_FUENTE_EXTERNA.id]
+  id_externo            varchar(60) [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (fuente_id, id_externo) [unique]
+    obra_id
+  }
+  Note: 'El índice único es lo que impide importar la misma obra dos veces.'
+}
+
+Table DAT_COLECCION {
+  id                    bigserial [pk]
+  nombre                text [not null]
+  descripcion           text
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+  Note: 'Sagas: El Señor de los Anillos como trilogía de libros y de películas.'
+}
+
+Table DAT_OBRA_COLECCION {
+  id                    bigserial [pk]
+  coleccion_id          bigint [not null, ref: > DAT_COLECCION.id]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (coleccion_id, obra_id) [unique]
+  }
+}
+
+// ---------------------------------------------------------------------
+//  AGRUPACIONES PARA EL DIAGRAMA
+// ---------------------------------------------------------------------
+
+TableGroup Nucleo {
+  DAT_OBRA
+  DAT_LIBRO
+  DAT_PELICULA
+  DAT_SERIE
+  DAT_TEMPORADA
+  DAT_EPISODIO
+  CFG_TIPO_OBRA
+}
+
+TableGroup EAV_Libro {
+  CFG_TIPO_DATO_LIBRO
+  CFG_OPCION_DATO_LIBRO
+  DAT_DATO_LIBRO
+}
+
+TableGroup EAV_Pelicula {
+  CFG_TIPO_DATO_PELICULA
+  CFG_OPCION_DATO_PELICULA
+  DAT_DATO_PELICULA
+}
+
+TableGroup EAV_Serie {
+  CFG_TIPO_DATO_SERIE
+  CFG_OPCION_DATO_SERIE
+  DAT_DATO_SERIE
+}
+
+TableGroup EAV_Episodio {
+  CFG_TIPO_DATO_EPISODIO
+  CFG_OPCION_DATO_EPISODIO
+  DAT_DATO_EPISODIO
+}
+
+TableGroup Relaciones {
+  DAT_PERSONA
+  DAT_PERSONA_OBRA
+  DAT_EMPRESA
+  DAT_EMPRESA_OBRA
+  CFG_ROL_PERSONA
+  CFG_ROL_EMPRESA
+  DAT_COLECCION
+  DAT_OBRA_COLECCION
+}
+
+TableGroup Catalogos {
+  CFG_IDIOMA
+  CFG_PAIS
+  CFG_FUENTE_EXTERNA
+}

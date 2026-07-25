@@ -15,7 +15,8 @@ medialog/
 │   └── decisiones-diseno.md     Por qué el modelo es como es
 └── db/
     ├── migrations/              DDL, en orden de ejecución
-    └── seeds/                   Datos iniciales de configuración
+    ├── seeds/                   Datos iniciales de configuración
+    └── tools/                   Utilidades sueltas, NO se ejecutan en bloque
 ```
 
 ## Montar la base de datos desde cero
@@ -38,6 +39,20 @@ En PowerShell:
 ```bash
 Get-ChildItem db/migrations/*.sql, db/seeds/*.sql | ForEach-Object { psql -d medialog -f $_.FullName }
 ```
+
+## Borrar la base de datos
+
+`db/tools/drop_all.sql` elimina las 31 tablas con todos sus datos. Está fuera de
+`migrations/` a propósito: esa carpeta se ejecuta entera en bucle, y un script de
+borrado dentro arrasaría la base de datos en cada montaje.
+
+Exige confirmación explícita — sin la variable no hace nada:
+
+```bash
+psql -d medialog -v confirmar=BORRAR -f db/tools/drop_all.sql
+```
+
+Para reconstruir desde cero, ese comando seguido del bucle de montaje de arriba.
 
 ## Mayúsculas en los nombres de tabla
 

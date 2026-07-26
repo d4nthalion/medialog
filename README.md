@@ -19,6 +19,12 @@ medialog/
     └── tools/                   Utilidades sueltas, NO se ejecutan en bloque
 ```
 
+`db/migrations/099_auditoria.sql` va numerado al final a propósito: recorre las
+tablas ya creadas para engancharles el trigger de auditoría y los comentarios
+comunes, así que tiene que ejecutarse después de todas las demás. Al añadir
+migraciones nuevas, numéralas por debajo de 099 y vuelve a lanzarlo — es
+idempotente.
+
 ## Montar la base de datos desde cero
 
 Requiere PostgreSQL 14 o superior (se usa `num_nonnulls`, columnas generadas
@@ -42,7 +48,7 @@ Get-ChildItem db/migrations/*.sql, db/seeds/*.sql | ForEach-Object { psql -d med
 
 ## Borrar la base de datos
 
-`db/tools/drop_all.sql` elimina las 31 tablas con todos sus datos. Está fuera de
+`db/tools/drop_all.sql` elimina las 45 tablas con todos sus datos. Está fuera de
 `migrations/` a propósito: esa carpeta se ejecuta entera en bucle, y un script de
 borrado dentro arrasaría la base de datos en cada montaje.
 
@@ -67,9 +73,9 @@ siempre. No lo hagas.
 
 ## Estado
 
-- [x] Modelo de datos
-- [x] DDL
-- [ ] Dominio social (usuarios, reviews, ratings, listas, seguimiento)
+- [x] Modelo de datos del catálogo (EAV)
+- [x] DDL del catálogo
+- [x] Dominio social (usuarios, valoraciones, diario, reseñas, listas, seguimiento)
 - [ ] API
 - [ ] Aplicación web
 - [ ] App Android

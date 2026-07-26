@@ -1,9 +1,10 @@
 -- =====================================================================
 --  HERRAMIENTA — Borrado completo del esquema
 -- =====================================================================
---  DESTRUCTIVO. Elimina las 31 tablas, el tipo enumerado y las dos
---  funciones comunes, con TODOS los datos que contengan. No hay
---  vuelta atras salvo restaurando un volcado.
+--  DESTRUCTIVO. Elimina las 45 tablas, el tipo enumerado y las tres
+--  funciones, con TODOS los datos que contengan: catalogo, cuentas de
+--  usuario, resenas y diarios. No hay vuelta atras salvo restaurando
+--  un volcado.
 --
 --  Esta FUERA de db/migrations/ a proposito: el README ejecuta esa
 --  carpeta entera en bucle, y un fichero de borrado alli dentro
@@ -60,6 +61,28 @@ SELECT :'confirmar' = 'BORRAR' AS confirmado \gset
 -- ---------------------------------------------------------------------
 BEGIN;
 
+-- 014 — Agregados
+DROP TABLE IF EXISTS DAT_ESTADISTICA_OBRA    CASCADE;
+
+-- 013 — Listas e interaccion social
+DROP TABLE IF EXISTS DAT_COMENTARIO_RESENA   CASCADE;
+DROP TABLE IF EXISTS DAT_ME_GUSTA_LISTA      CASCADE;
+DROP TABLE IF EXISTS DAT_ME_GUSTA_RESENA     CASCADE;
+DROP TABLE IF EXISTS DAT_LISTA_OBRA          CASCADE;
+DROP TABLE IF EXISTS DAT_LISTA               CASCADE;
+
+-- 012 — Interaccion con las obras
+DROP TABLE IF EXISTS DAT_RESENA              CASCADE;
+DROP TABLE IF EXISTS DAT_REGISTRO            CASCADE;
+DROP TABLE IF EXISTS DAT_VALORACION          CASCADE;
+DROP TABLE IF EXISTS DAT_ESTADO_USUARIO_OBRA CASCADE;
+DROP TABLE IF EXISTS CFG_ESTADO_USUARIO_OBRA CASCADE;
+
+-- 011 — Usuarios y grafo social
+DROP TABLE IF EXISTS DAT_SEGUIMIENTO         CASCADE;
+DROP TABLE IF EXISTS DAT_USUARIO             CASCADE;
+DROP TABLE IF EXISTS CFG_ROL_USUARIO         CASCADE;
+
 -- 009 — Identificadores externos y colecciones
 DROP TABLE IF EXISTS DAT_OBRA_COLECCION      CASCADE;
 DROP TABLE IF EXISTS DAT_COLECCION           CASCADE;
@@ -110,6 +133,7 @@ DROP TABLE IF EXISTS CFG_TIPO_OBRA           CASCADE;
 -- 001 — Tipo enumerado y funciones
 --  Los triggers de auditoria caen con sus tablas; la funcion que
 --  invocan hay que quitarla aparte.
+DROP FUNCTION IF EXISTS fn_refrescar_estadisticas() CASCADE;
 DROP FUNCTION IF EXISTS fn_auditoria_modificacion() CASCADE;
 DROP FUNCTION IF EXISTS fn_normalizar(text)         CASCADE;
 DROP TYPE     IF EXISTS tipo_dato_enum              CASCADE;

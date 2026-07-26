@@ -113,7 +113,7 @@ ambas. Por eso no cabe en `DAT_DATO_PELICULA` y necesita tabla propia, con
 | saga, número de volumen | `DAT_COLECCION` | relación N:M con orden |
 | nº de temporadas, nota media | en ninguna parte | son **derivados**: `COUNT`/`AVG`. Almacenarlos garantiza desincronizarlos |
 
-## 10. Auditoría en las 31 tablas
+## 10. Auditoría en las 45 tablas
 
 Cuatro columnas: `fecha_alta`, `usuario_alta`, `fecha_modificacion`,
 `usuario_modificacion`.
@@ -133,6 +133,97 @@ un catálogo colaborativo es justo lo que se quiere.
 
 ---
 
+# Dominio social
+
+## 11. Valoración, registro y reseña son tres tablas
+
+La decisión estructural de esta mitad del esquema.
+
+- `DAT_VALORACION` — la nota **actual**. Una fila por usuario y obra. Cambiar de opinión es un `UPDATE`.
+- `DAT_REGISTRO` — el diario. **Acumulativo**: releer *Dune* tres veces son tres filas.
+- `DAT_RESENA` — el texto. Varias por obra, ligadas o no a un registro concreto.
+
+Mezclarlas es el error clásico. La nota es *un hecho que se corrige*; el diario es
+*una historia que se acumula*. Si van juntas, o pierdes el historial al
+recalificar, o acabas con cinco notas activas sin saber cuál es «la del usuario».
+
+## 12. Marcar un episodio visto no necesita tabla
+
+Un episodio ya es una fila de `DAT_OBRA`, así que verlo es un `DAT_REGISTRO` más.
+Puntuar una temporada suelta, igual.
+
+Es el retorno de la decisión 4. Sin el supertipo harían falta
+`DAT_EPISODIO_VISTO`, `DAT_VALORACION_TEMPORADA` y las que fueran saliendo.
+
+## 13. Las notas, enteros de 1 a 10
+
+Medias estrellas sobre cinco, guardadas como `smallint`: 7 son tres estrellas y
+media.
+
+Nada de `numeric(2,1)` ni de coma flotante. Comparar `4.5` en flotante da
+sorpresas, y con enteros el `CHECK (nota BETWEEN 1 AND 10)` es trivial. La
+conversión a estrellas es cosa del frontend.
+
+## 14. Un solo estado por obra y usuario
+
+`DAT_ESTADO_USUARIO_OBRA` cubre `PENDIENTE`, `EN_CURSO`, `SIGUIENDO`,
+`COMPLETADA` y `ABANDONADA` en una tabla, en lugar de una lista de pendientes,
+otra de «leyendo ahora» y otra de abandonados.
+
+Son estados mutuamente excluyentes del mismo hecho. Como tablas independientes
+habría que sincronizarlas a mano en cada transición, y antes o después una se
+quedaría desfasada.
+
+`SIGUIENDO` existe aparte de `EN_CURSO` por las series: distingue «la veo semana
+a semana» de «la tengo empezada y parada», y sin ese matiz no se puede avisar de
+episodios nuevos solo a quien los espera.
+
+## 15. Nada de FKs polimórficas: dos tablas de «me gusta»
+
+`DAT_ME_GUSTA_RESENA` y `DAT_ME_GUSTA_LISTA` en vez de una tabla genérica con
+`(tipo, id)`.
+
+Misma razón que llevó a `DAT_OBRA`: una FK polimórfica no tiene integridad
+referencial y permite apuntar a filas que no existen. Aquí las tablas son
+pequeñas y duplicarlas apenas cuesta.
+
+## 16. Bajas de usuario lógicas, no en cascada
+
+`activo = false` más anonimización de `login`, `email` y `biografia`. El
+contenido sobrevive como «usuario eliminado».
+
+Si un usuario se borrase en cascada se llevaría por delante sus reseñas y, con
+ellas, los hilos de comentarios de otras personas. Un borrado real por RGPD, si
+llega a hacer falta, es un procedimiento aparte y consciente.
+
+## 17. La nota media sí se almacena, pero en tabla aparte
+
+Matiza la decisión 9. Con `num_temporadas` la regla se mantiene: un `COUNT` sobre
+veinte filas es gratis.
+
+La nota media es distinta: un `AVG` sobre potencialmente millones de valoraciones
+que se pinta en **cada tarjeta de cada parrilla**. Al vuelo no escala.
+
+Va en `DAT_ESTADISTICA_OBRA` y no como columna de `DAT_OBRA`. Así queda explícito
+que es una caché —con su `fecha_calculo` a la vista— y nadie la confunde con una
+propiedad de la obra. Se puede borrar entera y reconstruir con
+`fn_refrescar_estadisticas()`.
+
+**No es un trigger a propósito.** Un trigger por cada voto pondría todas las
+escrituras de una obra popular a competir por la misma fila, y la contención
+sería peor que el ahorro. Se refresca periódicamente.
+
+## 18. El feed de actividad, derivado
+
+Un `UNION ALL` sobre registros, reseñas, listas y seguimientos de la gente a la
+que sigues. Correcto y suficiente durante mucho tiempo.
+
+Una tabla `DAT_ACTIVIDAD` desnormalizada es la optimización que se hace *cuando*
+el feed va lento. Metida desde el día uno, obliga a mantenerla sincronizada con
+cinco tablas sin saber todavía si hacía falta.
+
+---
+
 ## Decisiones pendientes
 
 ### Ediciones de libro
@@ -148,6 +239,18 @@ razonable para una v1.
 Si se quieren más adelante hará falta `DAT_EDICION_LIBRO` colgando de
 `DAT_LIBRO`, y esos campos se mudan allí. **Es la migración más probable de este
 esquema.**
+
+### Inicio de sesión con proveedores externos
+
+`DAT_USUARIO.hash_password` asume autenticación propia con argon2id, que es lo
+razonable para una v1.
+
+Cuando se quiera «entrar con Google», hará falta `DAT_IDENTIDAD_USUARIO`
+(`usuario_id`, `proveedor`, `id_externo`, único por proveedor), y `hash_password`
+pasará a ser opcional: quien entre solo por OAuth no tendrá contraseña.
+
+Es el equivalente social de la migración de ediciones: previsible, acotada y no
+urgente.
 
 ### Títulos multiidioma
 

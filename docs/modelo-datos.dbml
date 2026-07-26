@@ -4,7 +4,7 @@
 //
 //  Pegar en https://dbdiagram.io
 //
-//  Auditoría en las 31 tablas:
+//  Auditoría en las 45 tablas:
 //    fecha_alta / usuario_alta / fecha_modificacion / usuario_modificacion
 // =====================================================================
 
@@ -524,6 +524,249 @@ Table DAT_OBRA_COLECCION {
   }
 }
 
+// =====================================================================
+//  DOMINIO SOCIAL — relacional puro, sin EAV
+// =====================================================================
+
+Table CFG_ROL_USUARIO {
+  id                    serial [pk]
+  codigo                varchar(20) [unique, not null, note: 'USUARIO, MODERADOR, ADMIN']
+  nombre                varchar(50) [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table DAT_USUARIO {
+  id                    bigserial [pk]
+  login                 varchar(30) [unique, not null]
+  email                 varchar(254) [unique, not null, note: 'normalizado a minusculas por CHECK']
+  hash_password         text [not null, note: 'argon2id; nunca la contrasena']
+  nombre_visible        varchar(80)
+  biografia             text
+  avatar_url            text
+  rol_id                int [not null, ref: > CFG_ROL_USUARIO.id]
+  idioma_id             int [ref: > CFG_IDIOMA.id]
+  perfil_publico        boolean [not null, default: true]
+  activo                boolean [not null, default: true]
+  fecha_ultimo_acceso   timestamptz
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  Note: 'Bajas LOGICAS (activo=false) + anonimizacion, nunca borrado en cascada: se llevaria por delante hilos de comentarios ajenos.'
+}
+
+Table DAT_SEGUIMIENTO {
+  id                    bigserial [pk]
+  seguidor_id           bigint [not null, ref: > DAT_USUARIO.id]
+  seguido_id            bigint [not null, ref: > DAT_USUARIO.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (seguidor_id, seguido_id) [unique]
+    seguido_id
+  }
+  Note: 'Dirigida y no reciproca. CHECK seguidor <> seguido.'
+}
+
+Table CFG_ESTADO_USUARIO_OBRA {
+  id                    serial [pk]
+  codigo                varchar(20) [unique, not null, note: 'PENDIENTE, EN_CURSO, SIGUIENDO, COMPLETADA, ABANDONADA']
+  nombre                varchar(50) [not null]
+  orden                 smallint [not null, default: 0]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+}
+
+Table DAT_ESTADO_USUARIO_OBRA {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  estado_id             int [not null, ref: > CFG_ESTADO_USUARIO_OBRA.id]
+  progreso              int [note: 'pagina o episodio']
+  fecha_cambio_estado   timestamptz [not null, default: `now()`]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (usuario_id, obra_id) [unique]
+    (usuario_id, estado_id, fecha_cambio_estado)
+    (obra_id, estado_id)
+  }
+  Note: 'Una tabla en vez de tres (pendientes / leyendo / abandonados): son estados excluyentes del mismo hecho.'
+}
+
+Table DAT_VALORACION {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  nota                  smallint [not null, note: '1..10 = media estrella cada punto']
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (usuario_id, obra_id) [unique]
+    obra_id
+    (usuario_id, nota)
+  }
+  Note: 'La nota ACTUAL. Cambiar de opinion es un UPDATE, no una fila nueva.'
+}
+
+Table DAT_REGISTRO {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  fecha_inicio          date
+  fecha_fin             date
+  es_repeticion         boolean [not null, default: false]
+  es_privado            boolean [not null, default: false]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (usuario_id, fecha_fin)
+    (obra_id, fecha_fin)
+  }
+  Note: 'El diario. Acumulativo. Marcar un episodio visto es un registro, porque un episodio ya es una obra.'
+}
+
+Table DAT_RESENA {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  registro_id           bigint [ref: > DAT_REGISTRO.id]
+  texto                 text [not null]
+  tiene_spoiler         boolean [not null, default: false]
+  es_privado            boolean [not null, default: false]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (obra_id, fecha_alta)
+    (usuario_id, fecha_alta)
+  }
+  Note: 'No lleva nota: eso es DAT_VALORACION. Varias por usuario y obra.'
+}
+
+Table DAT_LISTA {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  nombre                varchar(120) [not null]
+  descripcion           text
+  es_publica            boolean [not null, default: true]
+  es_ordenada           boolean [not null, default: false]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (usuario_id, nombre) [unique]
+  }
+  Note: 'Del usuario. NO confundir con DAT_COLECCION, que es del catalogo.'
+}
+
+Table DAT_LISTA_OBRA {
+  id                    bigserial [pk]
+  lista_id              bigint [not null, ref: > DAT_LISTA.id]
+  obra_id               bigint [not null, ref: > DAT_OBRA.id]
+  orden                 smallint [not null, default: 0]
+  comentario            text
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (lista_id, obra_id) [unique]
+    obra_id
+  }
+}
+
+Table DAT_ME_GUSTA_RESENA {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  resena_id             bigint [not null, ref: > DAT_RESENA.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (usuario_id, resena_id) [unique]
+    resena_id
+  }
+  Note: 'Tabla propia en vez de FK polimorfica (tipo + id), que no tendria integridad referencial.'
+}
+
+Table DAT_ME_GUSTA_LISTA {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  lista_id              bigint [not null, ref: > DAT_LISTA.id]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (usuario_id, lista_id) [unique]
+    lista_id
+  }
+}
+
+Table DAT_COMENTARIO_RESENA {
+  id                    bigserial [pk]
+  usuario_id            bigint [not null, ref: > DAT_USUARIO.id]
+  resena_id             bigint [not null, ref: > DAT_RESENA.id]
+  comentario_padre_id   bigint [ref: > DAT_COMENTARIO_RESENA.id]
+  texto                 text [not null]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (resena_id, fecha_alta)
+  }
+}
+
+Table DAT_ESTADISTICA_OBRA {
+  obra_id               bigint [pk, ref: - DAT_OBRA.id]
+  num_valoraciones      int [not null, default: 0]
+  nota_media            numeric(4,2)
+  num_resenas           int [not null, default: 0]
+  num_registros         int [not null, default: 0]
+  num_pendientes        int [not null, default: 0]
+  fecha_calculo         timestamptz [not null, default: `now()`]
+  fecha_alta            timestamptz [not null, default: `now()`]
+  usuario_alta          varchar(60) [not null]
+  fecha_modificacion    timestamptz
+  usuario_modificacion  varchar(60)
+
+  indexes {
+    (nota_media, num_valoraciones)
+    num_registros
+  }
+  Note: 'CACHE, no fuente de verdad. Se regenera con fn_refrescar_estadisticas(). En tabla aparte y no como columna de DAT_OBRA para que nadie la confunda con una propiedad de la obra.'
+}
+
+
 // ---------------------------------------------------------------------
 //  AGRUPACIONES PARA EL DIAGRAMA
 // ---------------------------------------------------------------------
@@ -577,4 +820,30 @@ TableGroup Catalogos {
   CFG_IDIOMA
   CFG_PAIS
   CFG_FUENTE_EXTERNA
+}
+
+TableGroup Social_Usuarios {
+  DAT_USUARIO
+  CFG_ROL_USUARIO
+  DAT_SEGUIMIENTO
+}
+
+TableGroup Social_Interaccion {
+  DAT_VALORACION
+  DAT_REGISTRO
+  DAT_RESENA
+  DAT_ESTADO_USUARIO_OBRA
+  CFG_ESTADO_USUARIO_OBRA
+}
+
+TableGroup Social_Listas {
+  DAT_LISTA
+  DAT_LISTA_OBRA
+  DAT_ME_GUSTA_RESENA
+  DAT_ME_GUSTA_LISTA
+  DAT_COMENTARIO_RESENA
+}
+
+TableGroup Agregados {
+  DAT_ESTADISTICA_OBRA
 }

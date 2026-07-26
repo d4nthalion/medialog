@@ -1,0 +1,19 @@
+{
+  "name": "medialog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Catalogo social de libros, peliculas y series",
+  "scripts": {
+    "db:migrate": "node db/tools/run.mjs migrate",
+    "db:seed": "node db/tools/run.mjs seed",
+    "db:drop": "node db/tools/run.mjs drop",
+    "db:reset": "node db/tools/run.mjs reset"
+  },
+  "devDependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

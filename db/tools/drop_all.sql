@@ -6,60 +6,50 @@
 --  usuario, resenas y diarios. No hay vuelta atras salvo restaurando
 --  un volcado.
 --
---  Esta FUERA de db/migrations/ a proposito: el README ejecuta esa
---  carpeta entera en bucle, y un fichero de borrado alli dentro
---  arrasaria la base de datos en cada montaje.
+--  Esta FUERA de db/migrations/ a proposito: esa carpeta se ejecuta
+--  entera en bucle, y un fichero de borrado alli dentro arrasaria la
+--  base de datos en cada montaje.
 --
---  USO:
---      psql -d medialog -v confirmar=BORRAR -f db/tools/drop_all.sql
+--  USO NORMAL:
+--      npm run db:drop -- --confirmar=BORRAR
 --
---  Sin -v confirmar=BORRAR el script no hace nada y avisa.
+--  CON psql, si algun dia se instala:
+--      psql -d medialog --single-transaction \
+--           -c "SET medialog.confirmar='BORRAR'" -f db/tools/drop_all.sql
 --
---  Para volver a montar la base de datos despues:
---      db/migrations/*.sql  y luego  db/seeds/*.sql
+--  Este fichero es SQL puro, sin metacomandos de psql (\set, \if,
+--  \echo): el ejecutor de Node no los entenderia. El cerrojo se hace
+--  con un parametro de sesion, que funciona igual en los dos.
+--
+--  No abre transaccion propia: la abre quien lo ejecuta. El ejecutor
+--  de Node envuelve cada fichero, y psql lo hace con --single-transaction.
 -- =====================================================================
-
-\set ON_ERROR_STOP on
 
 -- ---------------------------------------------------------------------
 --  Cerrojo
 -- ---------------------------------------------------------------------
---  Si la variable no viene definida se le da un valor que nunca
---  coincidira, para que la comprobacion de abajo aborte con un mensaje
---  claro en vez de fallar por interpolacion.
+--  Aborta si la sesion no trae medialog.confirmar = 'BORRAR'. El
+--  segundo argumento de current_setting evita que el parametro
+--  inexistente sea un error en si mismo.
 -- ---------------------------------------------------------------------
-\if :{?confirmar}
-\else
-    \set confirmar SIN_CONFIRMAR
-\endif
-
-SELECT :'confirmar' = 'BORRAR' AS confirmado \gset
-
-\if :confirmado
-    \echo '>> Borrando el esquema completo de medialog...'
-\else
-    \echo ''
-    \echo '  ABORTADO. Este script borra TODAS las tablas y TODOS los datos.'
-    \echo ''
-    \echo '  Para ejecutarlo de verdad:'
-    \echo '      psql -d medialog -v confirmar=BORRAR -f db/tools/drop_all.sql'
-    \echo ''
-    \quit
-\endif
+DO $$
+BEGIN
+    IF current_setting('medialog.confirmar', true) IS DISTINCT FROM 'BORRAR' THEN
+        RAISE EXCEPTION
+            'ABORTADO: este script borra TODAS las tablas y TODOS los datos. Ejecutar con  npm run db:drop -- --confirmar=BORRAR';
+    END IF;
+END;
+$$;
 
 
 -- ---------------------------------------------------------------------
 --  Borrado
 -- ---------------------------------------------------------------------
---  Todo dentro de una transaccion: PostgreSQL soporta DDL transaccional,
---  asi que si algo falla a mitad no queda un esquema medio borrado.
---
 --  El orden va de las tablas hijas a las padres. Con CASCADE no seria
 --  estrictamente necesario, pero deja el fichero legible como inverso
 --  exacto de las migraciones, y CASCADE sigue estando por si en el
---  futuro hay vistas o vistas materializadas colgando de estas tablas.
+--  futuro hay vistas colgando de estas tablas.
 -- ---------------------------------------------------------------------
-BEGIN;
 
 -- 014 — Agregados
 DROP TABLE IF EXISTS DAT_ESTADISTICA_OBRA    CASCADE;
@@ -95,9 +85,9 @@ DROP TABLE IF EXISTS DAT_PERSONA_OBRA        CASCADE;
 DROP TABLE IF EXISTS DAT_PERSONA             CASCADE;
 
 -- 007 — EAV de episodio
-DROP TABLE IF EXISTS DAT_DATO_EPISODIO       CASCADE;
+DROP TABLE IF EXISTS DAT_DATO_EPISODIO        CASCADE;
 DROP TABLE IF EXISTS CFG_OPCION_DATO_EPISODIO CASCADE;
-DROP TABLE IF EXISTS CFG_TIPO_DATO_EPISODIO  CASCADE;
+DROP TABLE IF EXISTS CFG_TIPO_DATO_EPISODIO   CASCADE;
 
 -- 006 — EAV de serie
 DROP TABLE IF EXISTS DAT_DATO_SERIE          CASCADE;
@@ -105,9 +95,9 @@ DROP TABLE IF EXISTS CFG_OPCION_DATO_SERIE   CASCADE;
 DROP TABLE IF EXISTS CFG_TIPO_DATO_SERIE     CASCADE;
 
 -- 005 — EAV de pelicula
-DROP TABLE IF EXISTS DAT_DATO_PELICULA       CASCADE;
+DROP TABLE IF EXISTS DAT_DATO_PELICULA        CASCADE;
 DROP TABLE IF EXISTS CFG_OPCION_DATO_PELICULA CASCADE;
-DROP TABLE IF EXISTS CFG_TIPO_DATO_PELICULA  CASCADE;
+DROP TABLE IF EXISTS CFG_TIPO_DATO_PELICULA   CASCADE;
 
 -- 004 — EAV de libro
 DROP TABLE IF EXISTS DAT_DATO_LIBRO          CASCADE;
@@ -130,15 +120,13 @@ DROP TABLE IF EXISTS CFG_PAIS                CASCADE;
 DROP TABLE IF EXISTS CFG_IDIOMA              CASCADE;
 DROP TABLE IF EXISTS CFG_TIPO_OBRA           CASCADE;
 
--- 001 — Tipo enumerado y funciones
---  Los triggers de auditoria caen con sus tablas; la funcion que
---  invocan hay que quitarla aparte.
+-- 001 — Funciones y tipo enumerado
+--  Los triggers de auditoria caen con sus tablas; las funciones que
+--  invocan hay que quitarlas aparte.
 DROP FUNCTION IF EXISTS fn_refrescar_estadisticas() CASCADE;
 DROP FUNCTION IF EXISTS fn_auditoria_modificacion() CASCADE;
 DROP FUNCTION IF EXISTS fn_normalizar(text)         CASCADE;
 DROP TYPE     IF EXISTS tipo_dato_enum              CASCADE;
-
-COMMIT;
 
 
 -- ---------------------------------------------------------------------
@@ -149,23 +137,11 @@ COMMIT;
 --  volver a montar el esquema no las duplica, porque 001 las crea con
 --  IF NOT EXISTS.
 --
---  Si de verdad se quiere una base de datos virgen, descomentar:
+--  Ademas, en Neon y en cualquier Postgres gestionado, reinstalar una
+--  extension puede requerir permisos que el usuario de la aplicacion
+--  no tiene.
 --
---  DROP EXTENSION IF EXISTS pg_trgm;
---  DROP EXTENSION IF EXISTS unaccent;
+--  Si de verdad se quiere una base de datos virgen:
+--      DROP EXTENSION IF EXISTS pg_trgm;
+--      DROP EXTENSION IF EXISTS unaccent;
 -- ---------------------------------------------------------------------
-
-
--- ---------------------------------------------------------------------
---  Comprobacion
--- ---------------------------------------------------------------------
---  Debe devolver cero filas. Si aparece alguna tabla, es que se creo
---  fuera de las migraciones y este script no la conoce.
--- ---------------------------------------------------------------------
-SELECT table_name AS tablas_que_quedan
-FROM   information_schema.tables
-WHERE  table_schema = 'public'
-  AND  table_type   = 'BASE TABLE'
-ORDER  BY 1;
-
-\echo '>> Esquema borrado. Para volver a montarlo: db/migrations/*.sql y db/seeds/*.sql'

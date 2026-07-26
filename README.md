@@ -16,7 +16,7 @@ medialog/
 └── db/
     ├── migrations/              DDL, en orden de ejecución
     ├── seeds/                   Datos iniciales de configuración
-    └── tools/                   Utilidades sueltas, NO se ejecutan en bloque
+    └── tools/                   run.mjs (ejecutor) y drop_all.sql
 ```
 
 `db/migrations/099_auditoria.sql` va numerado al final a propósito: recorre las
@@ -25,40 +25,61 @@ comunes, así que tiene que ejecutarse después de todas las demás. Al añadir
 migraciones nuevas, numéralas por debajo de 099 y vuelve a lanzarlo — es
 idempotente.
 
-## Montar la base de datos desde cero
+## Montar la base de datos
 
-Requiere PostgreSQL 14 o superior (se usa `num_nonnulls`, columnas generadas
-y `CREATE OR REPLACE TRIGGER`).
+La base de datos vive en [Neon](https://console.neon.tech) — PostgreSQL
+gestionado, sin instalar nada en local. Requiere PostgreSQL 14 o superior;
+Neon va por encima de eso.
 
-```bash
-createdb medialog
-```
+**1. Crear el proyecto en Neon** y copiar la cadena de conexión que muestra
+la consola.
 
-Después, ejecutar en orden todo `db/migrations/` y luego todo `db/seeds/`:
-
-```bash
-for f in db/migrations/*.sql db/seeds/*.sql; do psql -d medialog -f "$f"; done
-```
-
-En PowerShell:
+**2. Configurar el entorno:**
 
 ```bash
-Get-ChildItem db/migrations/*.sql, db/seeds/*.sql | ForEach-Object { psql -d medialog -f $_.FullName }
+cp .env.example .env
 ```
 
-## Borrar la base de datos
+Pegar la cadena en `DATABASE_URL`. El `.env` no se versiona.
+
+**3. Instalar dependencias y montar el esquema:**
+
+```bash
+npm install
+```
+
+```bash
+npm run db:migrate
+```
+
+```bash
+npm run db:seed
+```
+
+Los scripts SQL se envían a través de `db/tools/run.mjs`, un ejecutor en Node
+que aplica cada fichero en su propia transacción. Por eso **ninguno de los
+`.sql` usa metacomandos de psql** (`\set`, `\if`, `\echo`): no se entenderían.
+
+Si algún día instalas `psql`, los ficheros siguen siendo SQL puro y funcionan
+igual con `-f`.
+
+## Borrar y reconstruir
 
 `db/tools/drop_all.sql` elimina las 45 tablas con todos sus datos. Está fuera de
 `migrations/` a propósito: esa carpeta se ejecuta entera en bucle, y un script de
 borrado dentro arrasaría la base de datos en cada montaje.
 
-Exige confirmación explícita — sin la variable no hace nada:
+Exige confirmación explícita — sin ella aborta:
 
 ```bash
-psql -d medialog -v confirmar=BORRAR -f db/tools/drop_all.sql
+npm run db:drop -- --confirmar=BORRAR
 ```
 
-Para reconstruir desde cero, ese comando seguido del bucle de montaje de arriba.
+Para rehacerlo todo de una vez (borrar, migrar y sembrar):
+
+```bash
+npm run db:reset -- --confirmar=BORRAR
+```
 
 ## Mayúsculas en los nombres de tabla
 

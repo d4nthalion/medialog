@@ -24,11 +24,10 @@ node_modules/
 .yarn/
 *.tsbuildinfo
 
-# Se versiona UN solo lockfile, el del gestor que se acabe usando.
-# Descomentar los otros dos cuando esa decision este tomada.
-# package-lock.json
-# pnpm-lock.yaml
-# yarn.lock
+# El gestor es npm: package-lock.json SI se versiona. Los otros dos no
+# deben existir; si aparecen, es que alguien uso otro gestor por error.
+pnpm-lock.yaml
+yarn.lock
 
 # ---------------------------------------------------------------------
 #  Compilados y artefactos

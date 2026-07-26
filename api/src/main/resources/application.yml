@@ -10,6 +10,8 @@ spring:
 
   datasource:
     url: ${JDBC_DATABASE_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:

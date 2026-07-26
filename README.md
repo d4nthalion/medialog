@@ -13,10 +13,14 @@ medialog/
 │   ├── modelo-datos.dbml        Modelo para dbdiagram.io
 │   ├── catalogo-datos.md        Qué datos tiene cada tipo de obra
 │   └── decisiones-diseno.md     Por qué el modelo es como es
-└── db/
-    ├── migrations/              DDL, en orden de ejecución
-    ├── seeds/                   Datos iniciales de configuración
-    └── tools/                   run.mjs (ejecutor) y drop_all.sql
+├── db/
+│   ├── migrations/              DDL, en orden de ejecución
+│   ├── seeds/                   Datos iniciales de configuración
+│   └── tools/                   run.mjs (ejecutor) y drop_all.sql
+└── api/                         Spring Boot 4.1, Java 21, Maven
+    └── src/main/java/com/medialog/api/
+        ├── config/  controller/  dto/  exception/
+        └── mapper/  model/  repository/  service/
 ```
 
 `db/migrations/099_auditoria.sql` va numerado al final a propósito: recorre las
@@ -97,6 +101,6 @@ siempre. No lo hagas.
 - [x] Modelo de datos del catálogo (EAV)
 - [x] DDL del catálogo
 - [x] Dominio social (usuarios, valoraciones, diario, reseñas, listas, seguimiento)
-- [ ] API
+- [ ] API (Spring Boot — esqueleto creado)
 - [ ] Aplicación web
 - [ ] App Android

@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: medialog-api
+
+  # La cadena JDBC vive en el .env de la raiz del repo, junto a la de las
+  # migraciones. optional: para que el arranque no falle si se define por
+  # variable de entorno en vez de por fichero.
+  config:
+    import: optional:file:../.env[.properties]
+
+  datasource:
+    url: ${JDBC_DATABASE_URL}
+
+  jpa:
+    hibernate:
+      # NUNCA update ni create. El esquema es propiedad de db/migrations:
+      # si Hibernate pudiera tocarlo tendriamos dos fuentes de verdad.
+      # validate ademas nos avisa al arrancar si una entidad y su tabla
+      # se han desincronizado, que es justo lo que queremos.
+      ddl-auto: validate
+    # Cerrar la sesion al salir del servicio: sin esto, una entidad lazy
+    # se cargaria al serializar el JSON, fuera de la transaccion y sin
+    # control sobre cuantas consultas se lanzan.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    # Descomentar para ver el SQL que genera Hibernate.
+    # org.hibernate.SQL: DEBUG
+    com.medialog.api: DEBUG

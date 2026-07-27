@@ -13,6 +13,8 @@ import jakarta.persistence.Table;
 public class TipoObra extends Auditable {
 
     /** Codigos estables, usados para localizar la fila sin depender del id. */
+    public static final String SERIE = "SERIE";
+    public static final String TEMPORADA = "TEMPORADA";
     public static final String EPISODIO = "EPISODIO";
 
     @Id

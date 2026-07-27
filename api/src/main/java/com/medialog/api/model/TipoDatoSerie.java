@@ -11,16 +11,13 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/**
- * Define QUE datos puede tener un episodio: es el esquema del EAV.
- *
- * <p>La API construye los formularios leyendo esta tabla, en lugar de tenerlos
- * escritos en el codigo. Anadir un dato nuevo al catalogo no deberia obligar a
- * tocar Java.
- */
+/** Define QUE datos puede tener una serie: es el esquema de su EAV. */
 @Entity
-@Table(name = "cfg_tipo_dato_episodio")
-public class TipoDatoEpisodio extends Auditable implements TipoDatoEav {
+@Table(name = "cfg_tipo_dato_serie")
+public class TipoDatoSerie extends Auditable implements TipoDatoEav {
+
+    /** Dato que decide si hay que avisar de episodios nuevos a quien la sigue. */
+    public static final String ESTADO = "estado";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,11 +29,7 @@ public class TipoDatoEpisodio extends Auditable implements TipoDatoEav {
     @Column(nullable = false, length = 80)
     private String nombre;
 
-    /**
-     * {@code NAMED_ENUM} es lo que hace que Hibernate trate la columna como el
-     * tipo enumerado nativo {@code tipo_dato_enum} de PostgreSQL. Sin esto
-     * intentaria enviarla como varchar y el servidor rechazaria el tipo.
-     */
+    /** Enumerado nativo de PostgreSQL; ver la nota en {@link TipoDatoEpisodio}. */
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "tipo_dato", nullable = false)
@@ -61,14 +54,17 @@ public class TipoDatoEpisodio extends Auditable implements TipoDatoEav {
         return id;
     }
 
+    @Override
     public String getCodigo() {
         return codigo;
     }
 
+    @Override
     public String getNombre() {
         return nombre;
     }
 
+    @Override
     public TipoDatoValor getTipoDato() {
         return tipoDato;
     }
@@ -81,14 +77,17 @@ public class TipoDatoEpisodio extends Auditable implements TipoDatoEav {
         return obligatorio;
     }
 
+    @Override
     public String getUnidad() {
         return unidad;
     }
 
+    @Override
     public String getGrupo() {
         return grupo;
     }
 
+    @Override
     public Short getOrden() {
         return orden;
     }

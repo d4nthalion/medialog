@@ -5,15 +5,17 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 /**
  * Temporada de una serie. Es tambien una fila de {@link Obra}, de modo que se
- * puede puntuar y resenar por separado.
+ * puede puntuar y resenar por separado sin ningun mecanismo adicional.
  *
- * <p>No tiene modelo EAV a proposito: sus campos son fijos y no varian.
+ * <p>No tiene modelo EAV a proposito: sus campos son fijos y no varian entre
+ * series.
  */
 @Entity
 @Table(name = "dat_temporada")
@@ -25,8 +27,8 @@ public class Temporada extends Auditable {
 
     /**
      * Clave primaria compartida con {@link Obra}: {@code @MapsId} hace que
-     * {@code obraId} tome el valor del id de la obra asociada. Es el patron
-     * correcto para el class table inheritance del esquema.
+     * {@code obraId} tome el valor del id de la obra asociada. Es el patron del
+     * class table inheritance del esquema.
      */
     @MapsId
     @OneToOne(fetch = FetchType.LAZY, optional = false)
@@ -34,13 +36,14 @@ public class Temporada extends Auditable {
     private Obra obra;
 
     /**
-     * Serie a la que pertenece. Se mapea como identificador y no como
-     * asociacion porque la entidad Serie todavia no existe; cuando se cree,
-     * esto pasa a un {@code @ManyToOne}.
+     * Apunta a {@link Serie} y no a {@link Obra} a proposito: asi es imposible
+     * colgar una temporada de un libro.
      */
-    @Column(name = "serie_id", nullable = false)
-    private Long serieId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "serie_id", nullable = false)
+    private Serie serie;
 
+    /** Se admite 0 para las temporadas de especiales, que es como las numera TMDB. */
     @Column(nullable = false)
     private Short numero;
 
@@ -56,12 +59,12 @@ public class Temporada extends Auditable {
         this.obra = obra;
     }
 
-    public Long getSerieId() {
-        return serieId;
+    public Serie getSerie() {
+        return serie;
     }
 
-    public void setSerieId(Long serieId) {
-        this.serieId = serieId;
+    public void setSerie(Serie serie) {
+        this.serie = serie;
     }
 
     public Short getNumero() {

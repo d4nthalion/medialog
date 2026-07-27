@@ -14,30 +14,27 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Valor concreto de un dato de un episodio: la V del EAV.
+ * Valor concreto de un dato de una serie: la V del EAV.
  *
- * <p>Exactamente UNA de las columnas {@code valor*} esta informada, y cual de
- * ellas lo indica el {@link TipoDatoValor} de su {@link TipoDatoEpisodio}. Un
- * CHECK en la base de datos garantiza esa regla; aqui no se puede expresar.
- *
- * <p>Estan tipadas y no todas en texto por una razon concreta: asi ordenar y
- * filtrar por rango es numerico. En texto, 9 iria despues de 120.
+ * <p>Exactamente UNA de las columnas {@code valor*} esta informada, y cual lo
+ * dice el {@link TipoDatoValor} de su {@link TipoDatoSerie}. Un CHECK en la
+ * base de datos garantiza esa regla.
  */
 @Entity
-@Table(name = "dat_dato_episodio")
-public class DatoEpisodio extends Auditable implements DatoEav {
+@Table(name = "dat_dato_serie")
+public class DatoSerie extends Auditable implements DatoEav {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "episodio_id", nullable = false)
-    private Episodio episodio;
+    @JoinColumn(name = "serie_id", nullable = false)
+    private Serie serie;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tipo_dato_id", nullable = false)
-    private TipoDatoEpisodio tipoDato;
+    private TipoDatoSerie tipoDato;
 
     @Column(name = "valor_texto")
     private String valorTexto;
@@ -56,7 +53,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "valor_opcion_id")
-    private OpcionDatoEpisodio valorOpcion;
+    private OpcionDatoSerie valorOpcion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "valor_idioma_id")
@@ -66,7 +63,6 @@ public class DatoEpisodio extends Auditable implements DatoEav {
     @JoinColumn(name = "valor_pais_id")
     private Pais valorPais;
 
-    /** Orden del valor cuando el dato admite varios; 0 cuando es unico. */
     @Column(nullable = false)
     private Short posicion = 0;
 
@@ -74,22 +70,24 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         return id;
     }
 
-    public Episodio getEpisodio() {
-        return episodio;
+    public Serie getSerie() {
+        return serie;
     }
 
-    public void setEpisodio(Episodio episodio) {
-        this.episodio = episodio;
+    public void setSerie(Serie serie) {
+        this.serie = serie;
     }
 
-    public TipoDatoEpisodio getTipoDato() {
+    @Override
+    public TipoDatoSerie getTipoDato() {
         return tipoDato;
     }
 
-    public void setTipoDato(TipoDatoEpisodio tipoDato) {
+    public void setTipoDato(TipoDatoSerie tipoDato) {
         this.tipoDato = tipoDato;
     }
 
+    @Override
     public String getValorTexto() {
         return valorTexto;
     }
@@ -98,6 +96,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorTexto = valorTexto;
     }
 
+    @Override
     public Long getValorEntero() {
         return valorEntero;
     }
@@ -106,6 +105,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorEntero = valorEntero;
     }
 
+    @Override
     public BigDecimal getValorDecimal() {
         return valorDecimal;
     }
@@ -114,6 +114,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorDecimal = valorDecimal;
     }
 
+    @Override
     public LocalDate getValorFecha() {
         return valorFecha;
     }
@@ -122,6 +123,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorFecha = valorFecha;
     }
 
+    @Override
     public Boolean getValorBool() {
         return valorBool;
     }
@@ -130,14 +132,16 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorBool = valorBool;
     }
 
-    public OpcionDatoEpisodio getValorOpcion() {
+    @Override
+    public OpcionDatoSerie getValorOpcion() {
         return valorOpcion;
     }
 
-    public void setValorOpcion(OpcionDatoEpisodio valorOpcion) {
+    public void setValorOpcion(OpcionDatoSerie valorOpcion) {
         this.valorOpcion = valorOpcion;
     }
 
+    @Override
     public Idioma getValorIdioma() {
         return valorIdioma;
     }
@@ -146,6 +150,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorIdioma = valorIdioma;
     }
 
+    @Override
     public Pais getValorPais() {
         return valorPais;
     }
@@ -154,6 +159,7 @@ public class DatoEpisodio extends Auditable implements DatoEav {
         this.valorPais = valorPais;
     }
 
+    @Override
     public Short getPosicion() {
         return posicion;
     }

@@ -17,11 +17,34 @@ medialog/
 │   ├── migrations/              DDL, en orden de ejecución
 │   ├── seeds/                   Datos iniciales de configuración
 │   └── tools/                   run.mjs (ejecutor) y drop_all.sql
-└── api/                         Spring Boot 4.1, Java 21, Maven
-    └── src/main/java/com/medialog/api/
-        ├── config/  controller/  dto/  exception/
-        └── mapper/  model/  repository/  service/
+├── api/                         Spring Boot 4.1, Java 21, Maven
+│   └── src/main/java/com/medialog/api/
+│       ├── config/  controller/  dto/  exception/
+│       └── mapper/  model/  repository/  service/
+└── web/                         Vite + React 19 + TypeScript + Tailwind 4
+    └── src/
+        ├── api/  components/  hooks/  pages/
 ```
+
+## Arrancar el proyecto entero
+
+Tres piezas, en este orden:
+
+```bash
+cd api; ./mvnw spring-boot:run
+```
+
+```bash
+cd web; npm install; npm run dev
+```
+
+La API queda en `localhost:8080` y el front en `localhost:5175`. El front lee
+`VITE_API_URL` de `web/.env.local` (ver `web/.env.example`); sin él asume
+`http://localhost:8080/api`.
+
+Los orígenes permitidos por CORS se configuran con `medialog.cors.origenes`,
+que por defecto vale `http://localhost:5175`. En producción hay que fijarlo al
+dominio real.
 
 `db/migrations/099_auditoria.sql` va numerado al final a propósito: recorre las
 tablas ya creadas para engancharles el trigger de auditoría y los comentarios
@@ -101,6 +124,6 @@ siempre. No lo hagas.
 - [x] Modelo de datos del catálogo (EAV)
 - [x] DDL del catálogo
 - [x] Dominio social (usuarios, valoraciones, diario, reseñas, listas, seguimiento)
-- [ ] API (Spring Boot — esqueleto creado)
-- [ ] Aplicación web
+- [ ] API (Spring Boot — series, temporadas y episodios; faltan películas y libros)
+- [ ] Aplicación web (catálogo de series; faltan películas, libros y el dominio social)
 - [ ] App Android

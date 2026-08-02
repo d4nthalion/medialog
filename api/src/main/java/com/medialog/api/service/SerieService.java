@@ -129,10 +129,15 @@ public class SerieService {
         obraRepository.deleteAllByIdInBatch(serieRepository.findIdsObraDeLaJerarquia(id));
     }
 
-    /** Equivalente en Java de fn_normalizar: minusculas y sin acentos. */
+    /**
+     * Equivalente en Java de fn_normalizar: minusculas y sin acentos.
+     *
+     * <p>Sin texto devuelve cadena vacia y no null, para que el LIKE del
+     * repositorio quede en '%%' y case con todo; ver la nota alli.
+     */
     private String normalizar(String texto) {
         if (texto == null || texto.isBlank()) {
-            return null;
+            return "";
         }
         return Normalizer.normalize(texto.trim().toLowerCase(), Normalizer.Form.NFD)
                 .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");

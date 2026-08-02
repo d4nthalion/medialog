@@ -27,11 +27,16 @@ public interface SerieRepository extends JpaRepository<Serie, Long> {
      * {@code titulo_normalizado} —columna generada, en minusculas y sin
      * acentos— hay un indice GIN con pg_trgm, asi que el LIKE por ambos lados
      * si se puede resolver por indice.
+     *
+     * <p>Sin filtro se pasa cadena vacia, NO null: el patron queda en '%%' y
+     * casa con todo. Con null, el driver enviaria el parametro sin tipo y
+     * PostgreSQL fallaria con "operator does not exist: text ~~ bytea", porque
+     * una guarda {@code :texto is null} no evita la comprobacion de tipos.
      */
     @Query("""
             select s from Serie s
             join fetch s.obra o
-            where (:texto is null or o.tituloNormalizado like concat('%', :texto, '%'))
+            where o.tituloNormalizado like concat('%', :texto, '%')
             """)
     Page<Serie> buscar(@Param("texto") String texto, Pageable pageable);
 
